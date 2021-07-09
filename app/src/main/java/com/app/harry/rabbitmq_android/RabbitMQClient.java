@@ -192,10 +192,15 @@ public class RabbitMQClient {
             final Channel channel = connection.createChannel();
             //自定义队列名称，还是匿名队列
             if (TextUtils.isEmpty(queueName)) {
+//                queueName = channel.queueDeclare().getQueue();
                 queueName = channel.queueDeclare("", false, false, true, null).getQueue();
             } else {
                 channel.queueDeclare(queueName, false, false, true, null);
             }
+
+            LogUtils.d(channel.getConnection().getAddress());
+
+
             //绑定转换器，使用路由筛选消息
             if (!TextUtils.isEmpty(routingKey)) {
                 //创建的
@@ -203,7 +208,7 @@ public class RabbitMQClient {
                 channel.queueBind(queueName, exchangeName, routingKey);  //设置绑定
             }
             //监听队列
-            channel.basicConsume(queueName, true, new DefaultConsumer(channel) {
+            channel.basicConsume(queueName, false, new DefaultConsumer(channel) {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope,
                                            AMQP.BasicProperties properties, byte[] body)
@@ -225,23 +230,31 @@ public class RabbitMQClient {
      * 关闭所有资源
      */
     public void close() {
-        for (Channel next : channelMap.values()) {
-            if (next != null && next.isOpen()) {
-                try {
-                    next.close();
-                } catch (IOException | TimeoutException e) {
-                    e.printStackTrace();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (Channel next : channelMap.values()) {
+                    if (next != null && next.isOpen()) {
+                        try {
+
+                            next.close();
+                        } catch (IOException | TimeoutException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                channelMap.clear();
+                if (connection != null && connection.isOpen()) {
+                    try {
+                        connection.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
-        }
-        channelMap.clear();
-        if (connection != null && connection.isOpen()) {
-            try {
-                connection.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        });
+
+
     }
 
     public interface ResponseListener {
