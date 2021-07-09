@@ -223,6 +223,7 @@ public class RabbitMQClient {
             });
             channelMap.put(FLAG_RECEIVE + routingKey + queueName, channel);
         }
+
     }
 
 
